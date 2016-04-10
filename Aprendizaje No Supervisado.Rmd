@@ -1,0 +1,438 @@
+---
+title: "Aprendizaje No Supervisado"
+author: "Alejandro Acosta"
+date: "10 de Abril del 2016"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+###################################
+#            Bibliotecas
+###################################
+
+if(!require("gmodels")){
+  install.packages("gmodels")
+}
+
+library("gmodels")
+
+set.seed(1)
+```
+
+# Introducción
+En este documento se analizaran distintos datasets, utilizando aprendizaje no supervisado y se aplicarán los algoritmos de K-medias y clustering jerárquico para encontrar, o verificar la clase a la que pertenecen los individuos de cada dataset. 
+# Datasets 
+
+## a.csv
+```{r a.csv, echo=FALSE}
+entrada <- (read.csv("a.csv", sep = ",", header = F))
+a <- entrada[1:2]
+clases_reales <- (entrada$V3)
+
+plot(a)
+```
+
+En este dataset se puede observar que la entrada está dividida en tres grupos de datos semicirculares, debido a esto se utilizará el algoritmo de K-medias con el cual se obtienen mejores resultados para conjuntos de datos de este estilo.
+
+### K-Medias:
+
+```{r kmedias(a.csv), echo=FALSE}
+KMEDIAS <- kmeans(a, 3)
+plot(a, col = KMEDIAS$cluster)
+points(KMEDIAS$centers, col = 1:3, pch = 8, cex = 2)
+
+clases_pred <- (KMEDIAS$cluster-1)
+
+CrossTable(x=clases_reales, y=clases_pred, prop.chisq = FALSE)
+```
+
+Como se puede observar el resultado es muy bueno al analizar la matriz de confusión, solo hay un caso  erroneo donde se predijo que la clase era 2 en vez de 0.
+
+## a_big.csv
+
+```{r a_big.csv, echo=FALSE}
+entrada <- (read.csv("a_big.csv", sep = ",", header = F))
+a_big <- entrada[1:2]
+clases_reales <- (entrada$V3)
+
+#plot(a_big)
+```
+
+### K-Medias:
+#### Función
+```{r function(a_big.csv)}
+euc.dist <- function(x1, x2) sqrt(sum((x1 - x2) ^ 2))
+
+kmedias <- function(data, k, centroides){
+  diferencia = 2 # la primera vez entra
+  #se verifica la diferencia entre los centroides
+  while (diferencia > 1) {
+    cluster <- NULL
+    centers <- NULL
+    #por cada punto en el dataset
+    for(d in 1:nrow(data)){
+      dist <- NULL
+      for(i in 1:nrow(centroides)){
+        #se verifica la distancia entre punto y centroides
+        dist[i] <- euc.dist(data[d,],centroides[i,])
+      }
+      #se obtiene el centroide con la distancia minima
+      cluster <- rbind(cluster, which.min(dist))
+    }
+    #se calculan los nuevos centroides
+    for(i in 1:nrow(centroides)){
+      centers <- rbind(centers, c(mean(data[which(cluster==i),]$V1), mean(data[which(cluster==i),]$V2)))
+    }
+    #se calcula la diferencia
+    diferencia = centroides - centers
+    centroides = centers
+  }
+  res = cluster
+  #Se retorna 
+  return (cluster)
+}
+```
+
+#### NOTA:
+Al pasarle a mi función la data de a_big.csv se queda calculando por mucho tiempo y no se obtienen resultados.
+Lo que debería ocurrir al pasarle los centros obtenidos de a.csv es que la función converge más rápido debido a que los primeros centros no son escogidos aleatoriamente; y debido a que ambos datasets poseen datos similares los centros no se modifican tanto y por ello converge más rápido que si no se pasaran los centros.
+
+
+## good_luck.csv
+
+```{r good_luck.csv, echo=FALSE}
+entrada <- (read.csv("good_luck.csv", sep = ",", header = F))
+good_luck <- entrada[1:10]
+clases_reales <- (entrada$V11)
+
+plot(good_luck)
+```
+
+Paa este dataset se compara tanto K-medias como clustering jerárquico.
+
+### K-Medias:
+
+```{r kmedias(good_luck.csv), echo=FALSE}
+KMEDIAS <- kmeans(good_luck, 2)
+plot(good_luck, col = KMEDIAS$cluster)
+points(KMEDIAS$centers, col = 1:2, pch = 8, cex = 2)
+
+clases_pred <- (KMEDIAS$cluster-1)
+
+CrossTable(x=clases_reales, y=clases_pred, prop.chisq = FALSE)
+```
+
+### Clustering Jerárquico:
+#### Single
+```{r single(good_luck.csv), echo=FALSE}
+df = data.frame(entrada[1:10])
+datos = as.matrix(df)
+distancia = dist(datos)
+cluster = hclust(distancia, method = "single")
+corte = cutree(cluster, k=2)
+plot(df, col = corte)
+CrossTable(x=clases_reales, y=corte, prop.chisq = FALSE)
+```
+
+#### Complete
+```{r complete(good_luck.csv), echo=FALSE}
+df = data.frame(entrada[1:10])
+datos = as.matrix(df)
+distancia = dist(datos)
+cluster = hclust(distancia, method = "complete")
+corte = cutree(cluster, k=2)
+plot(df, col = corte)
+CrossTable(x=clases_reales, y=corte, prop.chisq = FALSE)
+```
+
+Como se observa no se puede definir bien una clase en particular para una fila del dataset por la cantidad de variables que tiene. Aún cuando el algoritmo de k-medias tiene resultados mucho mejores que el clustering jerárquico sus valores no representan un buen resultado ya que se predice bien alrededor del 50% de las veces.
+
+## moon.csv
+Debido a que en este caso los datos no forman una estructura semicircular, se utilizará el algoritmo de clustering jerárquico con los métodos "complete" y "single" utilizando las distancias euclideana y manhattan
+```{r moon.csv, echo=FALSE}
+entrada <- (read.csv("moon.csv", sep = ",", header = F))
+moon <- entrada[1:2]
+clases_reales <- (entrada$V3)
+
+plot(moon)
+```
+
+### Clustering Jerárquico:
+#### Single
+
+Para clustering jerárquico simple se predice correctamente la data, esta está dividida en dos clusters con la misma cantidad de puntos. A continuación se muestran las matrices de confución con la distancia euclideana y manhattan respectivamente, no se ve ninguna diferencia al variar el metodo de la distancia. 
+```{r single(moon.csv), echo=FALSE}
+df = data.frame(entrada$V1, entrada$V2)
+datos = as.matrix(df)
+distancia = dist(datos, method = "euclidean")
+cluster = hclust(distancia, method = "single")
+corte = cutree(cluster, k=2)
+
+clases_pred <- (corte-1)
+
+CrossTable(x=clases_reales, y=clases_pred, prop.chisq = FALSE)
+plot(df, col = corte)
+
+df = data.frame(entrada$V1, entrada$V2)
+datos = as.matrix(df)
+distancia = dist(datos, method = "manhattan")
+cluster = hclust(distancia, method = "single")
+corte = cutree(cluster, k=2)
+
+clases_pred <- (corte-1)
+
+CrossTable(x=clases_reales, y=clases_pred, prop.chisq = FALSE)
+plot(df, col = corte)
+```
+
+#### Complete
+Para el método complete en cambio se nota la diferencia entre usar una distancia y la otra, al igual que en la anterior en el primer caso se utilizó la distancia euclideana y luego la manhattan. Aún así este método no es tan efectivo al separar los datos como el single. 
+```{r complete(moon.csv), echo=FALSE}
+df = data.frame(entrada$V1, entrada$V2)
+datos = as.matrix(df)
+distancia = dist(datos, method = "euclidean")
+cluster = hclust(distancia, method = "complete")
+corte = cutree(cluster, k=2)
+
+clases_pred <- (corte-1)
+
+CrossTable(x=clases_reales, y=clases_pred, prop.chisq = FALSE)
+plot(df, col = corte)
+
+df = data.frame(entrada$V1, entrada$V2)
+datos = as.matrix(df)
+distancia = dist(datos, method = "manhattan")
+cluster = hclust(distancia, method = "complete")
+corte = cutree(cluster, k=2)
+
+clases_pred <- (corte-1)
+
+CrossTable(x=clases_reales, y=clases_pred, prop.chisq = FALSE)
+plot(df, col = corte)
+```
+
+## guess.csv
+
+```{r guess.csv, echo=FALSE}
+entrada <- (read.csv("guess.csv", sep = ",", header = F))
+guess <- entrada
+plot(guess)
+```
+
+Este dataset contiene clusters de datos que forman semicircunferencias, por lo tanto se usará el método de K-medias para la clasificación. Debido a que no tiene clases, se utilizará el Codo de Jambú para establecer un k.
+
+### Codo de Jambú:
+```{r jambu(guess.csv), echo=FALSE}
+#codo de jambu
+jambu = rep(0, 30)
+
+for (k in c(1:30)) {
+  KMEDIAS <- kmeans(guess, k)
+  jambu[k] = KMEDIAS$tot.withinss
+}
+plot(jambu, type = 'b')
+```
+
+El k que se utilizará será k=4 debido a que la curva comienza a "suavizar" su pendiente en este punto. Además al tratar con mayor valores para k el cluster de datos superior derecho se divide, lo que no debería ocurrir ya que a simple vista se puede observar que es un grupo completo . 
+
+### K-Medias:
+```{r kmedias(guess.csv), echo=FALSE}
+KMEDIAS <- kmeans(guess, 4)
+plot(guess, col = KMEDIAS$cluster)
+points(KMEDIAS$centers, col = 1:4, pch = 8, cex = 2)
+```
+
+## h.csv
+
+```{r h.csv, echo=FALSE}
+entrada <- (read.csv("h.csv", sep = ",", header = F))
+h <- data.frame(entrada$V1, entrada$V3)
+clases <- entrada$V4
+plot(h)
+```
+
+Para este dataset se utilizaron las siguientes reglas, debido a que el mínimo valor de la última columna era 4 y el mayor 14, se decidió dividir en partes iguales estos valores para asignar las clases.
+
+### Reglas:
+```{r reglas(h.csv)}
+definir_clase = function(numero){
+  if(numero < 6.0)
+    return(1)
+  else if(numero < 8.0)
+    return(2)
+  else if(numero < 10.0)
+    return(3)
+  else if(numero < 12.0)
+    return(4)
+  else
+    return(5)
+}
+
+clases_reales = rep(0, 1000)
+for (i in c(1:1000)) {
+  clases_reales[i] = definir_clase(clases[i])
+}
+```
+
+Se decidió usar el clustering jerárquico debido que el k-medias no brinda ninguna mejora en la predicción de las clases.
+
+### Clustering Jerárquico:
+#### Complete
+```{r complete(h.csv), echo=FALSE}
+datos = as.matrix(h)
+distancia = dist(datos,  method = "manhattan")
+cluster = hclust(distancia, method = "complete")
+corte = cutree(cluster, k=5)
+plot(h, col = corte)
+
+clases_pred = corte
+
+CrossTable(x=clases_reales, y=clases_pred, prop.chisq = FALSE)
+```
+
+La división de las reglas dio pocos aciertos en este caso, y no se encontró ninguna relación entre las reglas y los valores del dataset que dieran mejores resultados.
+
+## s.csv
+
+```{r s.csv, echo=FALSE}
+entrada <- (read.csv("s.csv", sep = ",", header = F))
+s <- data.frame(entrada$V1, entrada$V3)
+clases <- entrada$V4
+plot(s)
+```
+
+Para este dataset se utilizaron las siguientes reglas, debido a que el mínimo valor de la última columna era -4 y el mayor 4, se decidió dividir en partes iguales estos valores para asignar las clases.
+
+### Reglas:
+
+```{r reglas(s.csv)}
+definir_clase = function(numero){
+  if(numero < -1.5)
+    return(1)
+  else if(numero < 0.0)
+    return(2)
+  else if(numero < 1.5)
+    return(3)
+  else if(numero < 3.0)
+    return(4)
+  else
+    return(5)
+}
+
+clases_reales = rep(0, 1000)
+for (i in c(1:1000)) {
+  clases_reales[i] = definir_clase(clases[i])
+}
+```
+
+Se decidió usar k-medias debido que este proporciona una pequeña mejora en los resultados al predecir las cases en comparación con en clustering jerárquico.
+
+### K-medias:
+```{r kmedias(s.csv), echo=FALSE}
+set.seed(1)
+KMEDIAS <- kmeans(s, 5)
+plot(s, col = KMEDIAS$cluster)
+points(KMEDIAS$centers, col = 1:5, pch = 8, cex = 2)
+
+clases_pred = KMEDIAS$cluster
+
+CrossTable(x=clases_reales, y=clases_pred, prop.chisq = FALSE)
+```
+
+## help.csv
+
+```{r help.csv, echo=FALSE}
+entrada <- (read.csv("help.csv", sep = ",", header = F))
+sos <- data.frame(entrada$V1, entrada$V3)
+clases <- entrada$V4
+plot(sos)
+```
+
+En este dataset se ven tres clusters con la forma de un "SOS". Así que se decidió dividir la última columna en 3 clases, al igual que los anteriores se dividió en 3 partes equitativas.
+
+### Reglas:
+
+```{r reglas(help.csv)}
+definir_clase = function(numero){
+  if(numero < 2)
+    return(1)
+  else if(numero < 8)
+    return(2)
+  else
+    return(3)
+}
+
+clases_reales = rep(0, 3000)
+for (i in c(1:3000)) {
+  clases_reales[i] = definir_clase(clases[i])
+}
+```
+
+Para este caso se usaron tanto K-medias como clustering jerárquico para visualizar si alguno de ellos fallaba en dividir el dataset en los 3 cluster que se visualizaron.
+
+### K-medias:
+```{r kmedias(help.csv)}
+KMEDIAS <- kmeans(sos, 3)
+plot(sos, col = KMEDIAS$cluster)
+points(KMEDIAS$centers, col = 1:3, pch = 8, cex = 2)
+
+clases_pred = KMEDIAS$cluster
+
+CrossTable(x=clases_reales, y=clases_pred, prop.chisq = FALSE)
+```
+
+### Clustering Jerárquico:
+#### Complete
+
+```{r complete(help.csv), echo=FALSE}
+datos = as.matrix(sos)
+distancia = dist(datos,  method = "manhattan")
+cluster = hclust(distancia, method = "complete")
+corte = cutree(cluster, k=3)
+plot(sos, col = corte)
+
+clases_pred = corte
+
+CrossTable(x=clases_reales, y=clases_pred, prop.chisq = FALSE)
+```
+
+Como se puede observar ambos algoritmos dividieron correctamente el dataset, pero las clases no dieron los valores que se esperaban. Para corregir esto se utilizaría la variable X o V1 del data set para asignar adecuadamente las reglas y predecir mejor la clase a la que pertenecen. Es decir la regla se haría según el eje en el que las letras son facilmente separadas.
+
+### Reglas para que se separen bien las clases:
+
+En este caso se usa el eje X para separar las clases como se mencionó previamente.
+
+```{r reglas_nuevas(help.csv)}
+definir_clase = function(numero){
+  if(numero < 11)
+    return(1)
+  else if(numero < 40)
+    return(2)
+  else
+  return(3)
+  
+}
+
+clases_reales = rep(0, 3000)
+for (i in c(1:3000)) {
+  clases_reales[i] = definir_clase(entrada$V1[i])
+}
+```
+
+### Clustering Jerárquico:
+#### Complete
+
+```{r complete_correcto(help.csv), echo=FALSE}
+set.seed(2)
+#complete
+datos = as.matrix(sos)
+distancia = dist(datos,  method = "manhattan")
+cluster = hclust(distancia, method = "complete")
+corte = cutree(cluster, k=3)
+plot(sos, col = corte)
+
+clases_pred = corte
+
+CrossTable(x=clases_reales, y=clases_pred, prop.chisq = FALSE)
+```
